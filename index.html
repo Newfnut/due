@@ -84,6 +84,7 @@
     display: flex; align-items: center; justify-content: flex-end; padding-right: 22px;
   }
   .row-archive-bg span { color: white; font-size: 14px; font-weight: 500; }
+  .row-archive-bg.reveal-left { justify-content: flex-start; padding-left: 22px; padding-right: 0; }
   .row-front {
     position: relative; display: flex; background: var(--bg);
     transform: translateX(0); transition: transform 0.15s;
@@ -186,16 +187,11 @@
 
   <!-- Bills (pending) view -->
   <div id="billsView">
-    <div id="quickAdd">
-      <select id="templateSelect"></select>
-      <input id="amountInput" type="number" step="0.01" placeholder="Amount, e.g. 123.45" />
-      <div id="dueDatePreview"></div>
-      <input id="noteInput" type="text" placeholder="Note (optional)" />
-      <div id="quickAddError">Add a template first, or enter a valid amount.</div>
-      <button id="addEntryBtn">Add</button>
-    </div>
     <section class="header-bar">PENDING</section>
     <div id="pendingList"></div>
+    <div style="padding: 16px;">
+      <button id="openAddBtn" style="width:100%; padding:12px; background:var(--accent); border:none; border-radius:10px; color:white; font-size:15px; font-weight:500;">+ Add</button>
+    </div>
   </div>
 
   <!-- Archive view -->
@@ -227,6 +223,22 @@
       <button class="save" id="saveTemplateBtn">Add template</button>
     </div>
     <button id="closeTemplates">Close</button>
+  </div>
+</div>
+
+<!-- ================= ADD ENTRY MODAL ================= -->
+<div id="addEntryModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:20; align-items:flex-end;">
+  <div style="background:var(--surface); width:100%; max-height:82vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:16px;">
+    <h2 style="font-size:17px; font-weight:500; margin:0 0 12px;">Add entry</h2>
+    <div id="quickAdd" style="padding:0; background:none;">
+      <select id="templateSelect"></select>
+      <input id="amountInput" type="number" step="0.01" placeholder="Amount, e.g. 123.45" />
+      <div id="dueDatePreview"></div>
+      <input id="noteInput" type="text" placeholder="Note (optional)" />
+      <div id="quickAddError">Add a template first, or enter a valid amount.</div>
+      <button id="addEntryBtn">Add</button>
+    </div>
+    <button id="closeAddEntry" style="width:100%; padding:11px; background:none; border:none; color:var(--text-muted); font-size:14px; margin-top:10px;">Cancel</button>
   </div>
 </div>
 
@@ -353,6 +365,15 @@ document.getElementById("addEntryBtn").addEventListener("click", () => {
   });
   document.getElementById("amountInput").value = "";
   document.getElementById("noteInput").value = "";
+  document.getElementById("addEntryModal").style.display = "none";
+});
+
+document.getElementById("openAddBtn").addEventListener("click", () => {
+  updateDuePreview();
+  document.getElementById("addEntryModal").style.display = "flex";
+});
+document.getElementById("closeAddEntry").addEventListener("click", () => {
+  document.getElementById("addEntryModal").style.display = "none";
 });
 
 /* ---------------- Lists + swipe ---------------- */
@@ -365,7 +386,7 @@ function renderLists() {
   if (pending.length === 0) {
     pendingEl.innerHTML = '<p class="empty-msg">Nothing pending.</p>';
   } else {
-    pending.forEach(e => pendingEl.appendChild(buildRow(e, "Archive")));
+    pending.forEach(e => pendingEl.appendChild(buildRow(e)));
   }
 
   const archivedEl = document.getElementById("archivedList");
@@ -373,20 +394,21 @@ function renderLists() {
   if (archived.length === 0) {
     archivedEl.innerHTML = '<p class="empty-msg">Nothing archived yet.</p>';
   } else {
-    archived.forEach(e => archivedEl.appendChild(buildRow(e, "Restore")));
+    archived.forEach(e => archivedEl.appendChild(buildRow(e)));
   }
 
   updateArchiveBanner(archived);
   document.getElementById("archiveDot").style.display = archived.length > 0 ? "block" : "none";
 }
 
-function buildRow(e, actionLabel) {
+function buildRow(e) {
+  const isArchived = e.archived;
   const wrap = document.createElement("div");
   wrap.className = "row-wrap";
 
   const bg = document.createElement("div");
-  bg.className = "row-archive-bg";
-  bg.innerHTML = `<span>${actionLabel}</span>`;
+  bg.className = "row-archive-bg" + (isArchived ? "" : " reveal-left");
+  bg.innerHTML = `<span>${isArchived ? "Restore" : "Archive"}</span>`;
   wrap.appendChild(bg);
 
   const front = document.createElement("div");
@@ -407,17 +429,19 @@ function buildRow(e, actionLabel) {
   front.addEventListener("pointerdown", ev => { dragging = true; startX = ev.clientX; front.style.transition = "none"; });
   front.addEventListener("pointermove", ev => {
     if (!dragging) return;
-    curX = Math.min(0, ev.clientX - startX);
+    const delta = ev.clientX - startX;
+    curX = isArchived ? Math.min(0, delta) : Math.max(0, delta);
     front.style.transform = `translateX(${curX}px)`;
   });
   const release = () => {
     if (!dragging) return;
     dragging = false;
     front.style.transition = "transform 0.15s";
-    if (curX < -80) {
+    const triggered = isArchived ? curX < -80 : curX > 80;
+    if (triggered) {
       userDoc().collection("entries").doc(e.id).update({
-        archived: !e.archived,
-        archivedAt: !e.archived ? new Date().toISOString() : null
+        archived: !isArchived,
+        archivedAt: !isArchived ? new Date().toISOString() : null
       });
     } else {
       front.style.transform = "translateX(0)";
