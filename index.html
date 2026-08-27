@@ -248,9 +248,9 @@ const firebaseConfig = {
   messagingSenderId: "1057782930491",
   appId: "1:1057782930491:web:b54109ac07001be634501e"
 };
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
 /* ---------------- Auth ---------------- */
 document.getElementById("signInBtn").addEventListener("click", () => {
