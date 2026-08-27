@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Bills</title>
+<style>
+  :root {
+    --bg: #000000;
+    --surface: #161616;
+    --surface-2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f2f2f2;
+    --text-muted: #8a8a8a;
+    --danger: #d94b3f;
+    --accent: #3a7bd5;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  input, select, button, textarea { font-family: inherit; }
+
+  /* ---------- Auth screen ---------- */
+  #authScreen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+  }
+  #authScreen h1 { font-size: 22px; font-weight: 500; margin-bottom: 20px; }
+  #authScreen input {
+    width: 100%; max-width: 320px; padding: 12px 14px; margin-bottom: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 15px;
+  }
+  #authScreen button {
+    width: 100%; max-width: 320px; padding: 12px; margin-top: 6px;
+    background: var(--accent); border: none; border-radius: 10px;
+    color: white; font-size: 15px; font-weight: 500;
+  }
+  #authError { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
+
+  /* ---------- App shell ---------- */
+  #appScreen { display: none; min-height: 100vh; padding-bottom: 70px; }
+  header.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 16px 12px;
+  }
+  header.topbar h1 { font-size: 20px; font-weight: 500; margin: 0; }
+  header.topbar button.icon-btn {
+    background: none; border: none; color: var(--text); font-size: 20px; padding: 6px;
+  }
+
+  section.header-bar {
+    background: var(--surface); padding: 8px 16px; font-size: 12px;
+    letter-spacing: 0.05em; color: var(--text-muted); font-weight: 500;
+  }
+
+  /* ---------- Quick add ---------- */
+  #quickAdd { padding: 12px 16px; background: var(--surface); }
+  #quickAdd select, #quickAdd input {
+    width: 100%; padding: 11px 12px; margin-bottom: 8px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 15px;
+  }
+  #quickAdd button {
+    width: 100%; padding: 11px; background: var(--accent); border: none;
+    border-radius: 10px; color: white; font-size: 15px; font-weight: 500;
+  }
+  #quickAddError { color: var(--danger); font-size: 13px; margin: -2px 0 8px; display: none; }
+  #dueDatePreview { font-size: 13px; color: var(--text-muted); margin: -2px 0 8px; }
+
+  /* ---------- List rows ---------- */
+  .row-wrap { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+  .row-archive-bg {
+    position: absolute; inset: 0; background: var(--danger);
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 22px;
+  }
+  .row-archive-bg span { color: white; font-size: 14px; font-weight: 500; }
+  .row-front {
+    position: relative; display: flex; background: var(--bg);
+    transform: translateX(0); transition: transform 0.15s;
+  }
+  .row-stripe { width: 4px; flex-shrink: 0; }
+  .row-content {
+    flex: 1; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+  }
+  .row-title { font-size: 16px; margin: 0; }
+  .row-sub { font-size: 12px; color: var(--text-muted); margin: 3px 0 0; }
+  .row-amount { font-size: 16px; font-weight: 500; margin: 0; }
+  .empty-msg { padding: 20px 16px; color: var(--text-muted); font-size: 14px; }
+
+  /* ---------- Bottom tab bar ---------- */
+  #tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
+  #tabbar button {
+    flex: 1; background: none; border: none; color: var(--text-muted);
+    padding: 12px 0 10px; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  #tabbar button.active { color: var(--accent); }
+  #tabbar button .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--danger); position: absolute;
+    margin-left: 14px; margin-top: -2px;
+  }
+
+  /* ---------- Archive view ---------- */
+  #archiveBanner {
+    margin: 12px 16px; padding: 12px 14px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 10px; font-size: 13px; display: none;
+  }
+  #archiveBanner button {
+    margin-top: 8px; background: var(--accent); border: none; color: white;
+    padding: 7px 12px; border-radius: 8px; font-size: 13px;
+  }
+  .archive-actions { display: flex; gap: 10px; padding: 12px 16px; }
+  .archive-actions button {
+    flex: 1; padding: 10px; border-radius: 10px; font-size: 14px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+  }
+  .archive-actions button.danger { color: var(--danger); border-color: var(--danger); }
+
+  /* ---------- Templates modal ---------- */
+  #templatesModal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 20; align-items: flex-end;
+  }
+  #templatesSheet {
+    background: var(--surface); width: 100%; max-height: 82vh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; padding: 16px;
+  }
+  #templatesSheet h2 { font-size: 17px; font-weight: 500; margin: 0 0 12px; }
+  .template-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .template-row .swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+  .template-row .tname { flex: 1; font-size: 15px; }
+  .template-row .tday { font-size: 13px; color: var(--text-muted); }
+  .template-row button { background: none; border: none; color: var(--text-muted); font-size: 18px; padding: 4px 8px; }
+  #newTemplateForm { margin-top: 14px; }
+  #newTemplateForm input, #newTemplateForm select {
+    width: 100%; padding: 10px 12px; margin-bottom: 8px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 14px;
+  }
+  #swatchPicker { display: flex; gap: 8px; margin-bottom: 10px; }
+  #swatchPicker div { width: 26px; height: 26px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+  #swatchPicker div.selected { border-color: white; }
+  #newTemplateForm button.save {
+    width: 100%; padding: 11px; background: var(--accent); border: none;
+    border-radius: 10px; color: white; font-size: 15px; font-weight: 500; margin-top: 4px;
+  }
+  #closeTemplates {
+    width: 100%; padding: 11px; background: none; border: none; color: var(--text-muted);
+    font-size: 14px; margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH ================= -->
+<div id="authScreen">
+  <h1>Bills</h1>
+  <input id="emailInput" type="email" placeholder="Email" autocomplete="username" />
+  <input id="passwordInput" type="password" placeholder="Password" autocomplete="current-password" />
+  <button id="signInBtn">Sign in</button>
+  <div id="authError"></div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appScreen">
+  <header class="topbar">
+    <h1 id="viewTitle">Bills</h1>
+    <button class="icon-btn" id="gearBtn" aria-label="Manage templates">&#9881;</button>
+  </header>
+
+  <!-- Bills (pending) view -->
+  <div id="billsView">
+    <div id="quickAdd">
+      <select id="templateSelect"></select>
+      <input id="amountInput" type="number" step="0.01" placeholder="Amount, e.g. 123.45" />
+      <div id="dueDatePreview"></div>
+      <input id="noteInput" type="text" placeholder="Note (optional)" />
+      <div id="quickAddError">Add a template first, or enter a valid amount.</div>
+      <button id="addEntryBtn">Add</button>
+    </div>
+    <section class="header-bar">PENDING</section>
+    <div id="pendingList"></div>
+  </div>
+
+  <!-- Archive view -->
+  <div id="archiveView" style="display:none;">
+    <div id="archiveBanner"></div>
+    <section class="header-bar">ARCHIVED</section>
+    <div id="archivedList"></div>
+    <div class="archive-actions">
+      <button id="exportCsvBtn">Download CSV</button>
+      <button id="clearArchiveBtn" class="danger">Clear archive</button>
+    </div>
+  </div>
+
+  <div id="tabbar">
+    <button id="tabBills" class="active">Bills</button>
+    <button id="tabArchive" style="position:relative;">Archive<span class="dot" id="archiveDot" style="display:none;"></span></button>
+  </div>
+</div>
+
+<!-- ================= TEMPLATES MODAL ================= -->
+<div id="templatesModal">
+  <div id="templatesSheet">
+    <h2>Templates</h2>
+    <div id="templateList"></div>
+    <div id="newTemplateForm">
+      <input id="newTemplateName" type="text" placeholder="Name, e.g. Fortis" />
+      <input id="newTemplateDay" type="number" min="1" max="31" placeholder="Due day of month, e.g. 27" />
+      <div id="swatchPicker"></div>
+      <button class="save" id="saveTemplateBtn">Add template</button>
+    </div>
+    <button id="closeTemplates">Close</button>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* ---------------------------------------------------------
+   REPLACE with your existing "hallarc" Firebase project config
+   (same one used by the Metabolic Ledger / grocery app).
+--------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyATdyW05921fNz_wyZ3zjYVF4o44mm_tyg",
+  authDomain: "hallarc.firebaseapp.com",
+  projectId: "hallarc",
+  storageBucket: "hallarc.firebasestorage.app",
+  messagingSenderId: "1057782930491",
+  appId: "1:1057782930491:web:b54109ac07001be634501e"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+let currentUid = null;
+
+/* ---------------- Auth ---------------- */
+document.getElementById("signInBtn").addEventListener("click", () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const pw = document.getElementById("passwordInput").value;
+  document.getElementById("authError").textContent = "";
+  auth.signInWithEmailAndPassword(email, pw).catch(err => {
+    document.getElementById("authError").textContent = err.message;
+  });
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    uid = user.uid;
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("appScreen").style.display = "block";
+    attachListeners();
+  } else {
+    uid = null;
+    document.getElementById("authScreen").style.display = "flex";
+    document.getElementById("appScreen").style.display = "none";
+  }
+});
+
+function userDoc() { return db.collection("users").doc(uid); }
+
+function attachListeners() {
+  userDoc().collection("templates").orderBy("name").onSnapshot(snap => {
+    templates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTemplateSelect();
+    renderTemplatesModal();
+  });
+  userDoc().collection("entries").orderBy("dueDate").onSnapshot(snap => {
+    entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderLists();
+  });
+}
+
+/* ---------------- Date math ---------------- */
+function nextDueDate(dueDay, ref) {
+  ref = ref || new Date();
+  let year = ref.getFullYear();
+  let month = ref.getMonth();
+  const day = ref.getDate();
+  if (day > dueDay) {
+    month += 1;
+    if (month > 11) { month = 0; year += 1; }
+  }
+  let candidate = new Date(year, month, dueDay);
+  if (candidate.getMonth() !== month) {
+    candidate = new Date(year, month + 1, 0); // clamp to last day of short month
+  }
+  return candidate;
+}
+function fmtDate(d) {
+  return d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+function fmtMoney(n) { return "$" + Number(n).toFixed(2); }
+
+/* ---------------- Quick add ---------------- */
+function renderTemplateSelect() {
+  const sel = document.getElementById("templateSelect");
+  sel.innerHTML = templates.length
+    ? templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("")
+    : `<option value="">No templates yet — tap the gear icon</option>`;
+  updateDuePreview();
+}
+document.getElementById("templateSelect").addEventListener("change", updateDuePreview);
+function updateDuePreview() {
+  const t = templates.find(t => t.id === document.getElementById("templateSelect").value);
+  const el = document.getElementById("dueDatePreview");
+  if (!t) { el.textContent = ""; return; }
+  el.textContent = "Due " + fmtDate(nextDueDate(t.dueDay));
+}
+
+document.getElementById("addEntryBtn").addEventListener("click", () => {
+  const tid = document.getElementById("templateSelect").value;
+  const t = templates.find(t => t.id === tid);
+  const amount = parseFloat(document.getElementById("amountInput").value);
+  const note = document.getElementById("noteInput").value.trim();
+  const errEl = document.getElementById("quickAddError");
+  if (!t || isNaN(amount)) { errEl.style.display = "block"; return; }
+  errEl.style.display = "none";
+  const due = nextDueDate(t.dueDay);
+  userDoc().collection("entries").add({
+    templateId: t.id,
+    series: t.name,
+    color: t.color,
+    amount: amount,
+    note: note,
+    dueDate: due.toISOString(),
+    archived: false,
+    createdAt: new Date().toISOString(),
+    archivedAt: null
+  });
+  document.getElementById("amountInput").value = "";
+  document.getElementById("noteInput").value = "";
+});
+
+/* ---------------- Lists + swipe ---------------- */
+function renderLists() {
+  const pending = entries.filter(e => !e.archived);
+  const archived = entries.filter(e => e.archived);
+
+  const pendingEl = document.getElementById("pendingList");
+  pendingEl.innerHTML = "";
+  if (pending.length === 0) {
+    pendingEl.innerHTML = '<p class="empty-msg">Nothing pending.</p>';
+  } else {
+    pending.forEach(e => pendingEl.appendChild(buildRow(e, "Archive")));
+  }
+
+  const archivedEl = document.getElementById("archivedList");
+  archivedEl.innerHTML = "";
+  if (archived.length === 0) {
+    archivedEl.innerHTML = '<p class="empty-msg">Nothing archived yet.</p>';
+  } else {
+    archived.forEach(e => archivedEl.appendChild(buildRow(e, "Restore")));
+  }
+
+  updateArchiveBanner(archived);
+  document.getElementById("archiveDot").style.display = archived.length > 0 ? "block" : "none";
+}
+
+function buildRow(e, actionLabel) {
+  const wrap = document.createElement("div");
+  wrap.className = "row-wrap";
+
+  const bg = document.createElement("div");
+  bg.className = "row-archive-bg";
+  bg.innerHTML = `<span>${actionLabel}</span>`;
+  wrap.appendChild(bg);
+
+  const front = document.createElement("div");
+  front.className = "row-front";
+  const due = new Date(e.dueDate);
+  front.innerHTML = `
+    <div class="row-stripe" style="background:${e.color || "#378ADD"};"></div>
+    <div class="row-content">
+      <div>
+        <p class="row-title">${e.series}</p>
+        <p class="row-sub">${fmtDate(due)}${e.note ? " · " + e.note : ""}</p>
+      </div>
+      <p class="row-amount">${fmtMoney(e.amount)}</p>
+    </div>`;
+  wrap.appendChild(front);
+
+  let startX = 0, curX = 0, dragging = false;
+  front.addEventListener("pointerdown", ev => { dragging = true; startX = ev.clientX; front.style.transition = "none"; });
+  front.addEventListener("pointermove", ev => {
+    if (!dragging) return;
+    curX = Math.min(0, ev.clientX - startX);
+    front.style.transform = `translateX(${curX}px)`;
+  });
+  const release = () => {
+    if (!dragging) return;
+    dragging = false;
+    front.style.transition = "transform 0.15s";
+    if (curX < -80) {
+      userDoc().collection("entries").doc(e.id).update({
+        archived: !e.archived,
+        archivedAt: !e.archived ? new Date().toISOString() : null
+      });
+    } else {
+      front.style.transform = "translateX(0)";
+    }
+    curX = 0;
+  };
+  front.addEventListener("pointerup", release);
+  front.addEventListener("pointerleave", release);
+
+  return wrap;
+}
+
+/* ---------------- Archive banner (6-month export nudge) ---------------- */
+function updateArchiveBanner(archived) {
+  const el = document.getElementById("archiveBanner");
+  if (archived.length === 0) { el.style.display = "none"; return; }
+  userDoc().collection("meta").doc("settings").get().then(doc => {
+    const lastExport = doc.exists ? doc.data().lastExportAt : null;
+    const daysSince = lastExport ? (Date.now() - new Date(lastExport).getTime()) / 86400000 : Infinity;
+    if (daysSince > 182) {
+      el.style.display = "block";
+      el.innerHTML = `${archived.length} archived bill${archived.length === 1 ? "" : "s"} — ` +
+        (lastExport ? `last exported ${Math.floor(daysSince)} days ago.` : "never exported.") +
+        `<br><button id="bannerExportBtn">Download CSV now</button>`;
+      document.getElementById("bannerExportBtn").addEventListener("click", exportCsv);
+    } else {
+      el.style.display = "none";
+    }
+  });
+}
+
+/* ---------------- CSV export / clear ---------------- */
+function exportCsv() {
+  const archived = entries.filter(e => e.archived);
+  const rows = [["Series", "Amount", "Due date", "Note", "Archived at"]];
+  archived.forEach(e => rows.push([
+    e.series, e.amount.toFixed(2), new Date(e.dueDate).toISOString().slice(0, 10),
+    (e.note || "").replace(/,/g, ";"), e.archivedAt ? new Date(e.archivedAt).toISOString().slice(0, 10) : ""
+  ]));
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bills-archive-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+  userDoc().collection("meta").doc("settings").set({ lastExportAt: new Date().toISOString() }, { merge: true });
+}
+document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+
+document.getElementById("clearArchiveBtn").addEventListener("click", () => {
+  const archived = entries.filter(e => e.archived);
+  if (archived.length === 0) return;
+  if (!confirm(`Delete all ${archived.length} archived entries? This can't be undone.`)) return;
+  const batch = db.batch();
+  archived.forEach(e => batch.delete(userDoc().collection("entries").doc(e.id)));
+  batch.commit();
+});
+
+/* ---------------- Tabs ---------------- */
+document.getElementById("tabBills").addEventListener("click", () => switchView("bills"));
+document.getElementById("tabArchive").addEventListener("click", () => switchView("archive"));
+function switchView(view) {
+  currentView = view;
+  document.getElementById("billsView").style.display = view === "bills" ? "block" : "none";
+  document.getElementById("archiveView").style.display = view === "archive" ? "block" : "none";
+  document.getElementById("viewTitle").textContent = view === "bills" ? "Bills" : "Archive";
+  document.getElementById("tabBills").classList.toggle("active", view === "bills");
+  document.getElementById("tabArchive").classList.toggle("active", view === "archive");
+}
+
+/* ---------------- Templates modal ---------------- */
+document.getElementById("gearBtn").addEventListener("click", () => {
+  document.getElementById("templatesModal").style.display = "flex";
+});
+document.getElementById("closeTemplates").addEventListener("click", () => {
+  document.getElementById("templatesModal").style.display = "none";
+});
+
+function renderTemplatesModal() {
+  const el = document.getElementById("templateList");
+  el.innerHTML = templates.length
+    ? templates.map(t => `
+      <div class="template-row">
+        <div class="swatch" style="background:${t.color}"></div>
+        <div class="tname">${t.name}</div>
+        <div class="tday">Due ${t.dueDay}${ordinalSuffix(t.dueDay)}</div>
+        <button data-id="${t.id}" class="deleteTemplate">&times;</button>
+      </div>`).join("")
+    : `<p class="empty-msg">No templates yet.</p>`;
+  el.querySelectorAll(".deleteTemplate").forEach(btn => {
+    btn.addEventListener("click", () => {
+      userDoc().collection("templates").doc(btn.dataset.id).delete();
+    });
+  });
+}
+function ordinalSuffix(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+const swatchPicker = document.getElementById("swatchPicker");
+SWATCHES.forEach((c, i) => {
+  const d = document.createElement("div");
+  d.style.background = c;
+  if (i === 0) d.classList.add("selected");
+  d.addEventListener("click", () => {
+    selectedSwatch = c;
+    swatchPicker.querySelectorAll("div").forEach(x => x.classList.remove("selected"));
+    d.classList.add("selected");
+  });
+  swatchPicker.appendChild(d);
+});
+
+document.getElementById("saveTemplateBtn").addEventListener("click", () => {
+  const name = document.getElementById("newTemplateName").value.trim();
+  const day = parseInt(document.getElementById("newTemplateDay").value, 10);
+  if (!name || !day || day < 1 || day > 31) return;
+  userDoc().collection("templates").add({ name, dueDay: day, color: selectedSwatch });
+  document.getElementById("newTemplateName").value = "";
+  document.getElementById("newTemplateDay").value = "";
+});
+</script>
+</body>
+</html>
