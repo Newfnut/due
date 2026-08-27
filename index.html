@@ -252,6 +252,11 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const SWATCHES = ["#D85A30", "#378ADD", "#7F77DD", "#1D9E75", "#D4537E", "#EF9F27"];
+let uid = null;
+let templates = [];
+let entries = [];
+let selectedSwatch = SWATCHES[0];
+let currentView = "bills";
 /* ---------------- Auth ---------------- */
 document.getElementById("signInBtn").addEventListener("click", () => {
   const email = document.getElementById("emailInput").value.trim();
