@@ -91,6 +91,10 @@
   }
   .row-archive-bg span { color: white; font-size: 14px; font-weight: 500; }
   .row-archive-bg.reveal-left { justify-content: flex-start; padding-left: 22px; padding-right: 0; }
+  .row-archive-bg.dual { padding: 0; align-items: stretch; }
+  .swipe-btn { width: 84px; border: none; color: white; font-size: 13px; font-weight: 500; }
+  .swipe-btn.delete-btn { background: var(--danger); }
+  .swipe-btn.restore-btn { background: var(--accent); }
   .row-front {
     position: relative; display: flex; background: var(--bg);
     transform: translateX(0); transition: transform 0.2s ease-out;
@@ -410,18 +414,26 @@ function renderLists() {
   document.getElementById("archiveDot").style.display = archived.length > 0 ? "block" : "none";
 }
 
-const OPEN_DISTANCE = 88;
 let closeOpenRow = null;
 
 function buildRow(e) {
   const isArchived = e.archived;
   const dragSign = isArchived ? -1 : 1;
+  const openDist = isArchived ? 168 : 88;
   const wrap = document.createElement("div");
   wrap.className = "row-wrap";
 
   const bg = document.createElement("div");
-  bg.className = "row-archive-bg" + (isArchived ? "" : " reveal-left");
-  bg.innerHTML = `<span>${isArchived ? "Restore" : "Archive"}</span>`;
+  if (isArchived) {
+    bg.className = "row-archive-bg dual";
+    bg.innerHTML = `<div style="display:flex; margin-left:auto;">
+      <button class="swipe-btn delete-btn">Delete</button>
+      <button class="swipe-btn restore-btn">Restore</button>
+    </div>`;
+  } else {
+    bg.className = "row-archive-bg reveal-left";
+    bg.innerHTML = `<span>Archive</span>`;
+  }
   wrap.appendChild(bg);
 
   const front = document.createElement("div");
@@ -454,24 +466,24 @@ function buildRow(e) {
     dragging = true;
     moved = false;
     startX = ev.clientX;
-    front._dragX = open ? dragSign * OPEN_DISTANCE : 0;
+    front._dragX = open ? dragSign * openDist : 0;
     front.setPointerCapture(ev.pointerId);
   });
   front.addEventListener("pointermove", ev => {
     if (!dragging) return;
     moved = true;
-    let delta = ev.clientX - startX + (open ? dragSign * OPEN_DISTANCE : 0);
-    if (dragSign > 0) delta = Math.max(0, Math.min(delta, OPEN_DISTANCE));
-    else delta = Math.min(0, Math.max(delta, -OPEN_DISTANCE));
+    let delta = ev.clientX - startX + (open ? dragSign * openDist : 0);
+    if (dragSign > 0) delta = Math.max(0, Math.min(delta, openDist));
+    else delta = Math.min(0, Math.max(delta, -openDist));
     front._dragX = delta;
     setX(delta, false);
   });
   const release = () => {
     if (!dragging) return;
     dragging = false;
-    const shouldOpen = moved && Math.abs(front._dragX || 0) > OPEN_DISTANCE / 2;
+    const shouldOpen = moved && Math.abs(front._dragX || 0) > openDist / 2;
     open = shouldOpen;
-    setX(shouldOpen ? dragSign * OPEN_DISTANCE : 0, true);
+    setX(shouldOpen ? dragSign * openDist : 0, true);
     if (shouldOpen) {
       if (closeOpenRow && closeOpenRow !== closeRow) closeOpenRow();
       closeOpenRow = closeRow;
@@ -482,12 +494,23 @@ function buildRow(e) {
   front.addEventListener("pointerup", release);
   front.addEventListener("pointercancel", release);
 
-  bg.addEventListener("click", () => {
-    userDoc().collection("entries").doc(e.id).update({
-      archived: !isArchived,
-      archivedAt: !isArchived ? new Date().toISOString() : null
+  if (isArchived) {
+    bg.querySelector(".delete-btn").addEventListener("click", () => {
+      if (confirm(`Delete this entry (${e.series}, ${fmtMoney(e.amount)})? This can't be undone.`)) {
+        userDoc().collection("entries").doc(e.id).delete();
+      }
     });
-  });
+    bg.querySelector(".restore-btn").addEventListener("click", () => {
+      userDoc().collection("entries").doc(e.id).update({ archived: false, archivedAt: null });
+    });
+  } else {
+    bg.addEventListener("click", () => {
+      userDoc().collection("entries").doc(e.id).update({
+        archived: true,
+        archivedAt: new Date().toISOString()
+      });
+    });
+  }
 
   return wrap;
 }
