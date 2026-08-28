@@ -16,12 +16,18 @@
     --accent: #3a7bd5;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html {
+    background: #050505;
+  }
   body {
-    margin: 0;
+    margin: 0 auto;
+    max-width: 430px;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
   }
   input, select, button, textarea { font-family: inherit; }
 
@@ -87,7 +93,8 @@
   .row-archive-bg.reveal-left { justify-content: flex-start; padding-left: 22px; padding-right: 0; }
   .row-front {
     position: relative; display: flex; background: var(--bg);
-    transform: translateX(0); transition: transform 0.15s;
+    transform: translateX(0); transition: transform 0.2s ease-out;
+    touch-action: pan-y;
   }
   .row-stripe { width: 4px; flex-shrink: 0; }
   .row-content {
@@ -101,7 +108,8 @@
 
   /* ---------- Bottom tab bar ---------- */
   #tabbar {
-    position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px; display: flex;
     background: var(--surface); border-top: 1px solid var(--border);
   }
   #tabbar button {
@@ -136,7 +144,8 @@
     z-index: 20; align-items: flex-end;
   }
   #templatesSheet {
-    background: var(--surface); width: 100%; max-height: 82vh; overflow-y: auto;
+    background: var(--surface); width: 100%; max-width: 430px; margin: 0 auto;
+    max-height: 82vh; overflow-y: auto;
     border-radius: 16px 16px 0 0; padding: 16px;
   }
   #templatesSheet h2 { font-size: 17px; font-weight: 500; margin: 0 0 12px; }
@@ -228,7 +237,7 @@
 
 <!-- ================= ADD ENTRY MODAL ================= -->
 <div id="addEntryModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:20; align-items:flex-end;">
-  <div style="background:var(--surface); width:100%; max-height:82vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:16px;">
+  <div style="background:var(--surface); width:100%; max-width:430px; margin:0 auto; max-height:82vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:16px;">
     <h2 style="font-size:17px; font-weight:500; margin:0 0 12px;">Add entry</h2>
     <div id="quickAdd" style="padding:0; background:none;">
       <select id="templateSelect"></select>
@@ -401,8 +410,12 @@ function renderLists() {
   document.getElementById("archiveDot").style.display = archived.length > 0 ? "block" : "none";
 }
 
+const OPEN_DISTANCE = 88;
+let closeOpenRow = null;
+
 function buildRow(e) {
   const isArchived = e.archived;
+  const dragSign = isArchived ? -1 : 1;
   const wrap = document.createElement("div");
   wrap.className = "row-wrap";
 
@@ -425,31 +438,56 @@ function buildRow(e) {
     </div>`;
   wrap.appendChild(front);
 
-  let startX = 0, curX = 0, dragging = false;
-  front.addEventListener("pointerdown", ev => { dragging = true; startX = ev.clientX; front.style.transition = "none"; });
+  let startX = 0, dragging = false, moved = false, open = false;
+
+  function setX(x, animate) {
+    front.style.transition = animate ? "transform 0.2s ease-out" : "none";
+    front.style.transform = `translateX(${x}px)`;
+  }
+  function closeRow() {
+    open = false;
+    setX(0, true);
+    if (closeOpenRow === closeRow) closeOpenRow = null;
+  }
+
+  front.addEventListener("pointerdown", ev => {
+    dragging = true;
+    moved = false;
+    startX = ev.clientX;
+    front._dragX = open ? dragSign * OPEN_DISTANCE : 0;
+    front.setPointerCapture(ev.pointerId);
+  });
   front.addEventListener("pointermove", ev => {
     if (!dragging) return;
-    const delta = ev.clientX - startX;
-    curX = isArchived ? Math.min(0, delta) : Math.max(0, delta);
-    front.style.transform = `translateX(${curX}px)`;
+    moved = true;
+    let delta = ev.clientX - startX + (open ? dragSign * OPEN_DISTANCE : 0);
+    if (dragSign > 0) delta = Math.max(0, Math.min(delta, OPEN_DISTANCE));
+    else delta = Math.min(0, Math.max(delta, -OPEN_DISTANCE));
+    front._dragX = delta;
+    setX(delta, false);
   });
   const release = () => {
     if (!dragging) return;
     dragging = false;
-    front.style.transition = "transform 0.15s";
-    const triggered = isArchived ? curX < -80 : curX > 80;
-    if (triggered) {
-      userDoc().collection("entries").doc(e.id).update({
-        archived: !isArchived,
-        archivedAt: !isArchived ? new Date().toISOString() : null
-      });
-    } else {
-      front.style.transform = "translateX(0)";
+    const shouldOpen = moved && Math.abs(front._dragX || 0) > OPEN_DISTANCE / 2;
+    open = shouldOpen;
+    setX(shouldOpen ? dragSign * OPEN_DISTANCE : 0, true);
+    if (shouldOpen) {
+      if (closeOpenRow && closeOpenRow !== closeRow) closeOpenRow();
+      closeOpenRow = closeRow;
+    } else if (closeOpenRow === closeRow) {
+      closeOpenRow = null;
     }
-    curX = 0;
   };
   front.addEventListener("pointerup", release);
-  front.addEventListener("pointerleave", release);
+  front.addEventListener("pointercancel", release);
+
+  bg.addEventListener("click", () => {
+    userDoc().collection("entries").doc(e.id).update({
+      archived: !isArchived,
+      archivedAt: !isArchived ? new Date().toISOString() : null
+    });
+  });
 
   return wrap;
 }
