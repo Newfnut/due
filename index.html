@@ -405,6 +405,27 @@ document.getElementById("closeAddEntry").addEventListener("click", () => {
   document.getElementById("addEntryModal").style.display = "none";
 });
 
+let editingId = null;
+document.getElementById("saveEditBtn").addEventListener("click", () => {
+  if (!editingId) return;
+  const amount = parseFloat(document.getElementById("editAmountInput").value);
+  const note = document.getElementById("editNoteInput").value.trim();
+  if (isNaN(amount)) return;
+  userDoc().collection("entries").doc(editingId).update({ amount, note });
+  document.getElementById("editEntryModal").style.display = "none";
+  editingId = null;
+});
+document.getElementById("closeEditEntry").addEventListener("click", () => {
+  document.getElementById("editEntryModal").style.display = "none";
+  editingId = null;
+});
+function openEditModal(e) {
+  editingId = e.id;
+  document.getElementById("editAmountInput").value = e.amount;
+  document.getElementById("editNoteInput").value = e.note || "";
+  document.getElementById("editEntryModal").style.display = "flex";
+}
+
 /* ---------------- Lists + swipe ---------------- */
 function renderLists() {
   const pending = entries.filter(e => !e.archived);
@@ -509,6 +530,9 @@ function buildRow(e) {
   };
   front.addEventListener("pointerup", release);
   front.addEventListener("pointercancel", release);
+  front.addEventListener("click", () => {
+    if (!moved && !open) openEditModal(e);
+  });
 
   if (isArchived) {
     bg.querySelector(".delete-btn").addEventListener("click", () => {
